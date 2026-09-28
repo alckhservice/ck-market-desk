@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}</style><script>window.FEED_MODE="binance"</script></head><body>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}</style><script>window.FEED_MODE="binance";window.FIREBASE_DB="https://ck-market-desk-default-rtdb.asia-southeast1.firebasedatabase.app"</script></head><body>
 <title>CHHUN-KEANG Private Market Desk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Unbounded:wght@600;800&display=swap">
@@ -620,7 +620,7 @@ const LIVE=new Set();
 function simTick(){for(const k of KEYS){if(LIVE.has(k)||Math.random()<0.35)continue;const b=SYMS[k].bars.at(-1);const drift=(SYMS[k].lastHist-b.c)/SYMS[k].lastHist*0.02;const px=b.c*(1+drift+gauss()*ATRP[k]*0.045);applyTick(k,px)}}
 function applyTick(k,px,live){
   const s=SYMS[k];
-  if(live){const today=Math.floor(Date.now()/86400000);if(Math.floor(s.bars.at(-1).t/86400)<today&&isSession(k)){const pc=s.bars.at(-1).c;s.bars.push({t:Math.floor(Date.now()/1000),o:pc,h:Math.max(pc,px),l:Math.min(pc,px),c:pc,v:0})}}
+  if(live){const off=s.grp==="fx"?10800:0,today=Math.floor((Date.now()/1000+off)/86400);if(Math.floor((s.bars.at(-1).t+off)/86400)<today&&isSession(k)){const pc=s.bars.at(-1).c;s.bars.push({t:Math.floor(Date.now()/1000),o:pc,h:Math.max(pc,px),l:Math.min(pc,px),c:pc,v:0})}}
   const b=s.bars.at(-1),old=b.c;b.c=px;b.h=Math.max(b.h,px);b.l=Math.min(b.l,px);b.v+=Math.random()*b.v*0.002;
   const pe=document.querySelector(`[data-p="${k}"]`),ce=document.querySelector(`[data-c="${k}"]`);
   if(pe){pe.textContent=f(k,px);const row=pe.closest(".wi");row.classList.remove("flash-up","flash-down");void row.offsetWidth;row.classList.add(px>=old?"flash-up":"flash-down")}
@@ -638,6 +638,24 @@ function isSession(k){const g=SYMS[k].grp;if(g==="crypto")return true;const d=ne
     ws.onmessage=e=>{let d;try{d=JSON.parse(e.data).data}catch(x){return}if(!d||!map[d.s])return;const k=map[d.s];const now=Date.now();if(now-(lastSent[k]||0)<400)return;lastSent[k]=now;if(!LIVE.has(k)){LIVE.add(k);livePill()}applyTick(k,+d.p,true)};
     ws.onclose=()=>{Object.values(map).forEach(k=>LIVE.delete(k));livePill();h++;setTimeout(open,wait);wait=Math.min(wait*2,30000)};};
   open();
+})();
+/* Firebase Realtime Database feed: MT5 bridge writes prices/{XAUUSD,EURUSD}; the page streams them. */
+(function firebaseFeed(){
+  const db=window.FIREBASE_DB;if(!db||typeof EventSource==="undefined")return;
+  const map={XAUUSD:"OANDA:XAUUSD",EURUSD:"FX:EURUSD",BTCUSDT:"BINANCE:BTCUSDT",ETHUSDT:"BINANCE:ETHUSDT",GOOGL:"NASDAQ:GOOGL",NVDA:"NASDAQ:NVDA",AAPL:"NASDAQ:AAPL",MSFT:"NASDAQ:MSFT",TSLA:"NASDAQ:TSLA",SPY:"AMEX:SPY"};
+  const cur={},seen={};
+  const apply=(sym,v)=>{const k=map[sym];if(!k||!v||!(+v.px>0))return;cur[sym]=v;if(v.t&&Date.now()-v.t>90000)return;seen[k]=Date.now();if(!LIVE.has(k)){LIVE.add(k);livePill()}applyTick(k,+v.px,true)};
+  const handle=(path,data)=>{const parts=path.split("/").filter(Boolean);
+    if(!parts.length){if(data&&typeof data==="object")for(const [sym,v] of Object.entries(data))apply(sym,v);return}
+    const sym=parts[0];if(parts.length===1)apply(sym,data);else{const v={...(cur[sym]||{})};v[parts[1]]=data;apply(sym,v)}};
+  let es,wait=2000;
+  const open=()=>{es=new EventSource(db.replace(/\/$/,"")+"/prices.json");
+    const on=e=>{try{const m=JSON.parse(e.data);if(m)handle(m.path||"/",m.data)}catch(x){}};
+    es.addEventListener("put",on);es.addEventListener("patch",on);
+    es.onopen=()=>{wait=2000};
+    es.onerror=()=>{es.close();setTimeout(open,wait);wait=Math.min(wait*2,60000)};};
+  open();
+  setInterval(()=>{let ch=false;for(const [k,t] of Object.entries(seen)){if(Date.now()-t>90000&&!(k.startsWith("BINANCE")&&window.FEED_MODE==="binance")){LIVE.delete(k);delete seen[k];ch=true}}if(ch)livePill()},15000);
 })();
 (function feed(){
   if(window.FEED_MODE==="binance")return;

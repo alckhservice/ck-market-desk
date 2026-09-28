@@ -26,6 +26,8 @@ SYMBOLS = {
     "XAUUSDc": "XAUUSD",
     "EURUSDc": "EURUSD",
     "USTECc": "US100",
+    "US500c": "US500",
+    "US30c": "US30",
 }
 
 # US stocks: your broker has none, so these come from Yahoo Finance (free, no key, ~real-time

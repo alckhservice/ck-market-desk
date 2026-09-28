@@ -66,6 +66,8 @@ button{cursor:pointer}
 .wi .p{text-align:right;font-size:12.5px}
 .wi .c{font-size:11px;text-align:right}
 .wi svg{display:block}
+.st{display:block;margin-top:3px;margin-left:auto;width:max-content;font:700 8.5px var(--mono);letter-spacing:.1em;padding:1px 5px;border-radius:4px}
+.st.live{color:var(--up);background:var(--upbg)}.st.closed{color:var(--muted);background:var(--line)}.st.sim{color:var(--gold2);background:var(--goldbg)}
 .star{color:var(--dim);font-size:13px;line-height:1}
 .star.on{color:var(--gold)}
 .flash-up{animation:fu .7s}.flash-down{animation:fd .7s}
@@ -457,8 +459,8 @@ function spark(key){const c=SYMS[key].bars.slice(-30).map(x=>x.c);const mn=Math.
 function wlKeys(){let k=KEYS.filter(x=>S.grp==="all"||SYMS[x].grp===S.grp);if(S.wlSort==="chg")k=[...k].sort((a,b)=>Math.abs(chgOf(b))-Math.abs(chgOf(a)));if(S.wlSort==="fav")k=k.filter(x=>S.favs.has(x));return k}
 function chgOf(k){const b=SYMS[k].bars;return(b.at(-1).c/b.at(-2).c-1)*100}
 function renderWL(){
-  const k=wlKeys();
-  $("wl").innerHTML=k.length?k.map(x=>{const s=SYMS[x],c=chgOf(x);return`<button type="button" class="wi" data-k="${x}" aria-current="${x===S.sym}"><div><div class="s"><span class="star ${S.favs.has(x)?"on":""}" data-star="${x}" role="button" aria-label="Favourite">★</span>${s.tk}</div><div class="n">${s.name}</div></div>${spark(x)}<div><div class="p num" data-p="${x}">${f(x,s.bars.at(-1).c)}</div><div class="c num ${cls(c)}" data-c="${x}">${pct(c)}</div></div></button>`}).join(""):`<p class="muted" style="padding:10px">No favourites yet. Tap ★ on any symbol.</p>`;
+  const k=wlKeys();setTimeout(()=>k.forEach(markRow));
+  $("wl").innerHTML=k.length?k.map(x=>{const s=SYMS[x],c=chgOf(x);return`<button type="button" class="wi" data-k="${x}" aria-current="${x===S.sym}"><div><div class="s"><span class="star ${S.favs.has(x)?"on":""}" data-star="${x}" role="button" aria-label="Favourite">★</span>${s.tk}</div><div class="n">${s.name}</div></div>${spark(x)}<div><div class="p num" data-p="${x}">${f(x,s.bars.at(-1).c)}</div><div class="c num ${cls(c)}" data-c="${x}">${pct(c)}</div><span class="st sim" data-st="${x}">SIM</span></div></button>`}).join(""):`<p class="muted" style="padding:10px">No favourites yet. Tap ★ on any symbol.</p>`;
 }
 $("wl").addEventListener("click",e=>{const st=e.target.closest("[data-star]");if(st){const k=st.dataset.star;S.favs.has(k)?S.favs.delete(k):S.favs.add(k);saveFavs();renderWL();e.stopPropagation();return}const b=e.target.closest(".wi");if(b){select(b.dataset.k);if(innerWidth<=920)setM("center","chart")}});
 $("wlSort").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.wlSort=b.dataset.s;[...$("wlSort").children].forEach(x=>x.setAttribute("aria-pressed",x===b));renderWL()});
@@ -561,7 +563,7 @@ cv.addEventListener("pointerleave",()=>{S.hover=null;drag=null;draw()});
 cv.addEventListener("wheel",e=>{e.preventDefault();const N=geo.X.b.length;const cur=Math.min(S.range,N);S.range=Math.max(15,Math.min(N,Math.round(cur*(e.deltaY>0?1.15:0.87))));[...$("rgSeg").children].forEach(x=>x.setAttribute("aria-pressed","false"));draw()},{passive:false});
 
 /* ===== header + analysis panel ===== */
-function renderHead(){const s=SYMS[S.sym],b=s.bars,c=chgOf(S.sym);$("cExch").textContent=s.ex+" · "+(s.ex==="MT5"?"Index CFD":s.grp==="us"?"US equity":s.grp==="fx"?"Spot":"Crypto spot");$("cSym").textContent=s.tk;$("cName").textContent=s.name;$("cPrice").textContent=f(S.sym,b.at(-1).c);$("cChg").innerHTML=`<span class="${cls(c)}">${c>=0?"▲":"▼"} ${f(S.sym,Math.abs(b.at(-1).c-b.at(-2).c))} (${pct(c)})</span>`;$("aSymLbl").textContent=s.tk;$("indTf").textContent="1D"}
+function renderHead(){const s=SYMS[S.sym],b=s.bars,c=chgOf(S.sym);$("cExch").textContent=s.ex+" · "+(s.ex==="MT5"?"Index CFD":s.grp==="us"?"US equity":s.grp==="fx"?"Spot":"Crypto spot");$("cSym").textContent=s.tk;$("cName").textContent=s.name;$("cPrice").textContent=f(S.sym,b.at(-1).c);$("cChg").innerHTML=`<span class="${cls(c)}">${c>=0?"▲":"▼"} ${f(S.sym,Math.abs(b.at(-1).c-b.at(-2).c))} (${pct(c)})</span>`;$("aSymLbl").textContent=s.tk;const hs=LIVE.has(S.sym)?"● LIVE":CLOSED.has(S.sym)?"◌ MARKET CLOSED":"◇ SIMULATED";$("cExch").textContent+=" · "+hs;$("indTf").textContent="1D"}
 function renderAnalysis(){
   const A=analyze(S.sym,"1D"),k=S.sym;
   const tl={up:"Uptrend",down:"Downtrend",neu:"Range / transition"}[A.trend];
@@ -619,8 +621,8 @@ function toast(m){const t=document.createElement("div");t.className="toast";t.te
 /* ===== live ticks (simulated; swap for WebSocket feed) ===== */
 function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
 const ATRP={};KEYS.forEach(k=>{const a=atr(SYMS[k].bars);ATRP[k]=a.at(-1)/SYMS[k].bars.at(-1).c});
-const LIVE=new Set();
-function simTick(){for(const k of KEYS){if(LIVE.has(k)||Math.random()<0.35)continue;const b=SYMS[k].bars.at(-1);const drift=(SYMS[k].lastHist-b.c)/SYMS[k].lastHist*0.02;const px=b.c*(1+drift+gauss()*ATRP[k]*0.045);applyTick(k,px)}}
+const LIVE=new Set(),CLOSED=new Set(),REAL=new Set();
+function simTick(){for(const k of KEYS){if(LIVE.has(k)||CLOSED.has(k)||REAL.has(k)||Math.random()<0.35)continue;const b=SYMS[k].bars.at(-1);const drift=(SYMS[k].lastHist-b.c)/SYMS[k].lastHist*0.02;const px=b.c*(1+drift+gauss()*ATRP[k]*0.045);applyTick(k,px)}}
 function applyTick(k,px,live){
   const s=SYMS[k];
   if(live){const off=s.off||0,today=Math.floor((Date.now()/1000+off)/86400);if(Math.floor((s.bars.at(-1).t+off)/86400)<today&&isSession(k)){const pc=s.bars.at(-1).c;s.bars.push({t:Math.floor(Date.now()/1000),o:pc,h:Math.max(pc,px),l:Math.min(pc,px),c:pc,v:0})}}
@@ -647,7 +649,15 @@ function isSession(k){const g=SYMS[k].grp;if(g==="crypto")return true;const d=ne
   const db=window.FIREBASE_DB;if(!db||typeof EventSource==="undefined")return;
   const map={XAUUSD:"OANDA:XAUUSD",EURUSD:"FX:EURUSD",BTCUSDT:"BINANCE:BTCUSDT",ETHUSDT:"BINANCE:ETHUSDT",GOOGL:"NASDAQ:GOOGL",NVDA:"NASDAQ:NVDA",AAPL:"NASDAQ:AAPL",MSFT:"NASDAQ:MSFT",TSLA:"NASDAQ:TSLA",SPY:"AMEX:SPY",US100:"MT5:US100",US500:"MT5:US500",US30:"MT5:US30"};
   const cur={},seen={};
-  const apply=(sym,v)=>{const k=map[sym];if(!k||!v||!(+v.px>0))return;cur[sym]=v;if(v.t&&Date.now()-v.t>90000)return;seen[k]=Date.now();if(!LIVE.has(k)){LIVE.add(k);livePill()}applyTick(k,+v.px,true)};
+  const apply=(sym,v)=>{const k=map[sym];if(!k||!v||!(+v.px>0))return;cur[sym]=v;
+    const bridgeUp=!v.t||Date.now()-v.t<(v.closed?600000:90000);
+    const closed=v.closed||(v.tt&&Date.now()-v.tt>15*60000);
+    REAL.add(k);
+    if(!bridgeUp){LIVE.delete(k);CLOSED.delete(k);REAL.delete(k);livePill();return}
+    seen[k]=Date.now();
+    if(closed){LIVE.delete(k);CLOSED.add(k);applyTick(k,+v.px,false);}
+    else{CLOSED.delete(k);LIVE.add(k);applyTick(k,+v.px,true);}
+    livePill();markRow(k)};
   const handle=(path,data)=>{const parts=path.split("/").filter(Boolean);
     if(!parts.length){if(data&&typeof data==="object")for(const [sym,v] of Object.entries(data))apply(sym,v);return}
     const sym=parts[0];if(parts.length===1)apply(sym,data);else{const v={...(cur[sym]||{})};v[parts[1]]=data;apply(sym,v)}};
@@ -658,23 +668,26 @@ function isSession(k){const g=SYMS[k].grp;if(g==="crypto")return true;const d=ne
     es.onopen=()=>{wait=2000};
     es.onerror=()=>{es.close();setTimeout(open,wait);wait=Math.min(wait*2,60000)};};
   open();
-  setInterval(()=>{let ch=false;for(const [k,t] of Object.entries(seen)){if(Date.now()-t>90000&&!(k.startsWith("BINANCE")&&window.FEED_MODE==="binance")){LIVE.delete(k);delete seen[k];ch=true}}if(ch)livePill()},15000);
+  setInterval(()=>{let ch=false;for(const [k,t] of Object.entries(seen)){const lim=CLOSED.has(k)?600000:90000;if(Date.now()-t>lim&&!(k.startsWith("BINANCE")&&window.FEED_MODE==="binance")){LIVE.delete(k);CLOSED.delete(k);REAL.delete(k);delete seen[k];ch=true;markRow(k)}}if(ch)livePill()},15000);
 })();
 (function feed(){
   if(window.FEED_MODE==="binance")return;
   let url=window.FEED_URL||null;
   if(!url&&/^https?:$/.test(location.protocol)&&!/claude|anthropic|usercontent/.test(location.hostname))url=location.origin.replace(/^http/,"ws")+"/ws";
   if(!url)return;
-  let ws,wait=1000;
+  let ws,wait=1000;const relay=new Set();
   const open=()=>{try{ws=new WebSocket(url)}catch(e){return}
     ws.onopen=()=>{wait=1000};
     ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(x){return}
-      if(m.type==="status"){LIVE.clear();(m.live||[]).forEach(k=>SYMS[k]&&LIVE.add(k));livePill();return}
-      if(m.type==="tick"&&SYMS[m.sym]){if(!LIVE.has(m.sym)){LIVE.add(m.sym);livePill()}applyTick(m.sym,m.px,true)}};
-    ws.onclose=()=>{LIVE.clear();livePill();setTimeout(open,wait);wait=Math.min(wait*2,30000)};};
+      if(m.type==="status"){relay.forEach(k=>LIVE.delete(k));relay.clear();(m.live||[]).forEach(k=>{if(SYMS[k]){LIVE.add(k);relay.add(k)}});livePill();return}
+      if(m.type==="tick"&&SYMS[m.sym]){if(!LIVE.has(m.sym)){LIVE.add(m.sym);relay.add(m.sym);livePill()}applyTick(m.sym,m.px,true)}};
+    ws.onclose=()=>{relay.forEach(k=>LIVE.delete(k));relay.clear();livePill();setTimeout(open,wait);wait=Math.min(wait*2,30000)};};
   open();
 })();
-function livePill(){const n=LIVE.size;$("liveTxt").textContent=!S.sim&&!n?"PAUSED":n===KEYS.length?"LIVE FEED":n?`LIVE ${n}/${KEYS.length} · REST SIM`:"SIM TICKS";$("livePill").classList.toggle("paused",!S.sim&&!n)}
+function livePill(){const n=LIVE.size,c=CLOSED.size,sim=KEYS.length-n-c;
+  $("liveTxt").textContent=!n&&!c?(S.sim?"SIM TICKS":"PAUSED"):`LIVE ${n}`+(c?` · CLOSED ${c}`:"")+(sim?` · SIM ${sim}`:"");
+  $("livePill").classList.toggle("paused",!n);KEYS.forEach(markRow)}
+function markRow(k){const el=document.querySelector(`[data-st="${k}"]`);if(!el)return;const st=LIVE.has(k)?"live":CLOSED.has(k)?"closed":"sim";el.className="st "+st;el.title=st==="live"?"Live price":st==="closed"?"Market closed · last real price":"Simulated · no live feed";el.textContent=st==="live"?"LIVE":st==="closed"?"CLOSED":"SIM"}
 let tickN=0;
 setInterval(()=>{if(!S.sim&&!LIVE.size)return;if(S.sim)simTick();tickN++;renderHead();draw();if(tickN%3===0){renderAnalysis();if(S.sub==="screener"||innerWidth>920)renderScreener();if(S.sub==="alerts")renderAlerts()}},1400);
 $("simBtn").onclick=()=>{S.sim=!S.sim;$("simBtn").textContent=S.sim?"Pause":"Resume";livePill()};

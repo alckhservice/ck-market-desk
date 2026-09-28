@@ -17,3 +17,9 @@ python mt5_firebase_bridge.py
 ```
 
 First run asks for the Firebase database secret (Firebase console → ck-market-desk → Project settings → Service accounts → Database secrets). It is saved locally in `firebase_secret.txt`, which is never committed.
+
+## Runs by itself
+
+The bridge is registered as the Windows scheduled task **CK Market Desk Bridge**. It starts hidden at logon, opens MT5 if needed, and reconnects after drops. Log: `Documents\CK-Market-Desk\bridge.log`.
+
+Each watchlist row shows **LIVE**, **CLOSED** (market shut, last real price) or **SIM** (no feed).

@@ -5,6 +5,7 @@ Sends live prices to the desk through Firebase:
   - Gold, EURUSD, US100, US500, US30 from your MT5 terminal
   - GOOGL, NVDA, AAPL, MSFT, TSLA, SPY from Yahoo Finance (free, no key)
   - Intraday candles (1m 3m 5m 15m 30m 1H 4H) for all of them, for the desk's timeframe buttons
+  - Deep history (up to 5000 bars of 5m 15m 1H 4H) for the desk's backtester, refreshed hourly
 
 It starts automatically when you log in to Windows (scheduled task "CK Market Desk Bridge"),
 runs hidden, starts MT5 if it isn't open, and reconnects on its own after MT5 restarts,
@@ -34,6 +35,10 @@ HEARTBEAT = 20       # resend unchanged prices so the desk knows the bridge is a
 RETRY_MT5 = 30       # seconds between attempts to (re)connect to MT5
 CANDLE_BARS = 300    # intraday candles kept per symbol and timeframe
 TFS = ["1m", "3m", "5m", "15m", "30m", "1H", "4H"]
+HIST_BARS = 5000     # deep history for the desk's backtester (refreshed hourly)
+HIST_EVERY = 3600
+# When the broker has little history for a symbol, backtest history comes from Yahoo instead.
+YAHOO_HIST_FALLBACK = {"US100": "NQ=F", "US500": "ES=F", "US30": "YM=F"}
 
 here = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(here, "bridge.log")
@@ -94,20 +99,20 @@ def safe_send(update, what):
 _candle_hash = {}
 
 
-def put_candles(sym, tf, rows):
+def put_candles(sym, tf, rows, root="candles"):
     """rows: list of (t, o, h, l, c, v). Stored as one compact string per symbol/timeframe."""
     if not rows:
         return
     txt = ";".join("%d,%s,%s,%s,%s,%d" % (t, _n(o), _n(h), _n(l), _n(c), v) for t, o, h, l, c, v in rows)
-    key = (sym, tf)
+    key = (root, sym, tf)
     if _candle_hash.get(key) == hash(txt):
         return
     try:
-        r = http.put(f"{DB_URL}/candles/{sym}/{tf}.json", params={"auth": SECRET}, json=txt, timeout=15)
+        r = http.put(f"{DB_URL}/{root}/{sym}/{tf}.json", params={"auth": SECRET}, json=txt, timeout=30)
         r.raise_for_status()
         _candle_hash[key] = hash(txt)
     except requests.RequestException as e:
-        log(f"Candles {sym} {tf} send failed: {e.__class__.__name__}")
+        log(f"{root} {sym} {tf} send failed: {e.__class__.__name__}")
 
 
 def _n(x):
@@ -195,6 +200,57 @@ def stock_loop():
         time.sleep(STOCK_EVERY if any_open else 60)
 
 
+
+# ---------------- deep history for backtests ----------------
+_hist_t = {}
+
+
+def mt5_hist(active, force=False):
+    if not force and time.time() - _hist_t.get("mt5", 0) < HIST_EVERY:
+        return
+    _hist_t["mt5"] = time.time()
+    codes = {"5m": mt5.TIMEFRAME_M5, "15m": mt5.TIMEFRAME_M15, "1H": mt5.TIMEFRAME_H1, "4H": mt5.TIMEFRAME_H4}
+    for broker, desk in active.items():
+        for tf, code in codes.items():
+            r = mt5.copy_rates_from_pos(broker, code, 0, HIST_BARS)
+            if r is None or len(r) < 1500:
+                _mt5_hist_ok[(desk, tf)] = False
+                continue            # too short: Yahoo fallback (hist_loop) covers it
+            _mt5_hist_ok[(desk, tf)] = True
+            put_candles(desk, tf, [(int(x["time"]), float(x["open"]), float(x["high"]), float(x["low"]),
+                                    float(x["close"]), int(x["tick_volume"])) for x in r], root="hist")
+    log("History for backtests updated from MT5.")
+
+
+YAHOO_HIST_TF = {"5m": ("5m", "60d", None), "15m": ("15m", "60d", None), "1H": ("60m", "730d", None), "4H": ("60m", "730d", 14400)}
+
+
+def hist_loop():
+    y = requests.Session(); y.headers["User-Agent"] = "Mozilla/5.0"
+    time.sleep(20)
+    while True:
+        jobs = [(s, s) for s in STOCKS] + list(YAHOO_HIST_FALLBACK.items())
+        for desk, ysym in jobs:
+            for tf, (iv, rng, agg) in YAHOO_HIST_TF.items():
+                if desk in YAHOO_HIST_FALLBACK and _mt5_hist_ok.get((desk, tf)):
+                    continue
+                try:
+                    j = y.get(f"https://query1.finance.yahoo.com/v8/finance/chart/{ysym}",
+                              params={"interval": iv, "range": rng}, timeout=20).json()
+                    res = j["chart"]["result"][0]; q = res["indicators"]["quote"][0]
+                    rows = [(t, q["open"][i], q["high"][i], q["low"][i], q["close"][i], int(q["volume"][i] or 0))
+                            for i, t in enumerate(res.get("timestamp") or []) if q["close"][i] is not None and q["open"][i] is not None]
+                    if agg:
+                        rows = _agg(rows, agg)
+                    put_candles(desk, tf, rows[-HIST_BARS:], root="hist")
+                except Exception:
+                    pass
+        log("History for backtests updated from Yahoo.")
+        time.sleep(HIST_EVERY)
+
+
+_mt5_hist_ok = {}
+
 # ---------------- MT5 ----------------
 def connect_mt5():
     """Connect to MT5, starting the terminal if needed. Returns {broker: desk} or {}."""
@@ -255,9 +311,10 @@ def mt5_loop():
                 continue
             dead_since = None
             mt5_candles(active, force=True)
+            mt5_hist(active, force=True)
         update, now, got = {}, time.time(), 0
         if now >= next_candles:
-            mt5_candles(active); next_candles = now + 2
+            mt5_candles(active); mt5_hist(active); next_candles = now + 2
         for broker, desk in active.items():
             t = mt5.symbol_info_tick(broker)
             if not t or not t.bid or not t.ask:
@@ -286,6 +343,7 @@ def mt5_loop():
 
 log("Bridge starting" + (" (hidden)" if HIDDEN else ""))
 threading.Thread(target=stock_loop, daemon=True).start()
+threading.Thread(target=hist_loop, daemon=True).start()
 while True:
     try:
         mt5_loop()

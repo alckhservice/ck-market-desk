@@ -191,6 +191,48 @@ tr.dimrow td{opacity:.35}
   .mnav button[aria-current="true"]{color:var(--gold2);background:var(--goldbg)}
   .wi .n{max-width:180px}
 }
+.bt-wrap{overflow-y:auto;flex:1;padding:12px 14px 20px;display:flex;flex-direction:column;gap:14px}
+.bt-controls{display:flex;flex-direction:column;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--ink)}
+.bt-group{display:flex;flex-direction:column;gap:8px}
+.bt-row{display:flex;flex-wrap:wrap;gap:8px}
+.bt-row .field input,.bt-row .field select{width:120px}
+.bt-row .field.wide select{width:250px;max-width:100%}
+#btDir{width:150px!important}
+.bt-desc{margin:0;font-size:12px;color:var(--muted);max-width:70ch}
+.bt-run{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.bt-empty{border:1px dashed var(--line2);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+.bt-out{display:flex;flex-direction:column;gap:12px}
+.bt-hero{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:16px;background:linear-gradient(180deg,var(--panel2),var(--ink))}
+.bt-badge{font:800 13px var(--disp);letter-spacing:.08em;padding:12px 16px;border-radius:12px;text-align:center;min-width:130px}
+.bt-badge small{display:block;font:500 10.5px var(--mono);letter-spacing:.06em;margin-top:4px;opacity:.85}
+.bt-badge.pass{background:var(--upbg);color:var(--up);border:1px solid rgba(43,196,138,.45)}
+.bt-badge.fail{background:var(--downbg);color:var(--down);border:1px solid rgba(240,86,106,.45)}
+.bt-badge.prog{background:var(--goldbg);color:var(--gold2);border:1px solid rgba(232,176,75,.45)}
+.bt-heroinfo{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline}
+.bt-heroinfo .big{font:700 26px var(--mono)}
+.bt-heroinfo span{font-size:12px;color:var(--muted)}
+.bt-goals{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.bt-goal{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--ink)}
+.bt-goal .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px}
+.bt-goal .top b{font:600 13px var(--mono)}
+.bt-bar{height:7px;border-radius:4px;background:var(--line);margin-top:8px;overflow:hidden}
+.bt-bar i{display:block;height:100%;border-radius:4px}
+.bt-goal .sub2{font:500 11px var(--mono);color:var(--muted);margin-top:6px}
+.bt-ok{color:var(--up)}.bt-bad{color:var(--down)}
+.bt-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.bt-card{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--ink)}
+.bt-card span{display:block;font:600 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.bt-card b{font:700 16px var(--mono)}
+.bt-panel{border:1px solid var(--line);border-radius:12px;background:var(--ink);padding:12px}
+.bt-panel h4{margin:0 0 8px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.bt-canvas{width:100%;height:230px;display:block}
+.bt-canvas.small{height:150px}
+.bt-log{overflow-x:auto;max-height:340px;overflow-y:auto}
+.bt-log table{min-width:640px}
+.bt-note{font-size:11.5px;color:var(--dim);margin:0}
+.bt-mc{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.bt-mc .big{font:700 30px var(--mono)}
+@media (max-width:920px){.bt-hero{grid-template-columns:1fr}.bt-row .field input,.bt-row .field select{width:104px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -224,6 +266,7 @@ tr.dimrow td{opacity:.35}
     <div class="ctabs" role="tablist">
       <button class="ctab" role="tab" data-sub="chart" aria-selected="true">Chart</button>
       <button class="ctab" role="tab" data-sub="screener" aria-selected="false">Screener</button>
+      <button class="ctab" role="tab" data-sub="backtest" aria-selected="false">Backtest</button>
       <button class="ctab" role="tab" data-sub="alerts" aria-selected="false">Alerts <span id="alertCount" class="muted"></span></button>
       <button class="ctab" role="tab" data-sub="guide" aria-selected="false">Make it live</button>
     </div>
@@ -256,6 +299,58 @@ tr.dimrow td{opacity:.35}
         </div>
       </div>
       <div class="tablewrap"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table></div>
+    </section>
+
+    <section class="sub" id="sub-backtest">
+      <div class="bt-wrap">
+        <div class="bt-controls">
+          <div class="bt-group">
+            <div class="eyebrow">Market</div>
+            <div class="bt-row">
+              <div class="field"><label for="btSym">Symbol</label><select id="btSym"></select></div>
+              <div class="field"><label for="btTf">Timeframe</label><select id="btTf"><option>5m</option><option selected>15m</option><option>1H</option><option>4H</option><option>1D</option></select></div>
+            </div>
+          </div>
+          <div class="bt-group">
+            <div class="eyebrow">Strategy</div>
+            <div class="bt-row">
+              <div class="field wide"><label for="btStrat">Setup</label><select id="btStrat"></select></div>
+              <div class="field"><label for="btDir">Direction</label><select id="btDir"><option value="both">Long &amp; short</option><option value="long">Long only</option><option value="short">Short only</option></select></div>
+            </div>
+            <div class="bt-row">
+              <div class="field"><label for="btStop">Stop (× ATR)</label><input id="btStop" type="number" step="0.1" value="1.5"></div>
+              <div class="field"><label for="btRR">Target (R)</label><input id="btRR" type="number" step="0.1" value="2"></div>
+              <div class="field"><label for="btMaxDay">Max trades / day</label><input id="btMaxDay" type="number" value="2"></div>
+            </div>
+            <p class="bt-desc" id="btStratDesc"></p>
+          </div>
+          <div class="bt-group">
+            <div class="eyebrow">Account &amp; costs</div>
+            <div class="bt-row">
+              <div class="field"><label for="btBal">Account size</label><select id="btBal"><option value="5000">$5,000</option><option value="10000">$10,000</option><option value="25000">$25,000</option><option value="50000">$50,000</option><option value="100000" selected>$100,000</option><option value="200000">$200,000</option></select></div>
+              <div class="field"><label for="btRisk">Risk / trade %</label><input id="btRisk" type="number" step="0.05" value="0.5"></div>
+              <div class="field"><label for="btSpread">Spread (price)</label><input id="btSpread" type="number" step="any" value=""></div>
+              <div class="field"><label for="btComm">Commission $/trade</label><input id="btComm" type="number" step="any" value="7"></div>
+            </div>
+          </div>
+          <div class="bt-group">
+            <div class="eyebrow">Challenge rules</div>
+            <div class="bt-row">
+              <div class="field wide"><label for="btRule">Preset</label><select id="btRule"></select></div>
+              <div class="field"><label for="btTarget">Profit target %</label><input id="btTarget" type="number" step="0.5"></div>
+              <div class="field"><label for="btDaily">Max daily loss %</label><input id="btDaily" type="number" step="0.5"></div>
+              <div class="field"><label for="btMaxL">Max loss %</label><input id="btMaxL" type="number" step="0.5"></div>
+              <div class="field"><label for="btTrail">Max loss type</label><select id="btTrail"><option value="0">Static</option><option value="1">Trailing</option></select></div>
+              <div class="field"><label for="btMinD">Min trading days</label><input id="btMinD" type="number"></div>
+            </div>
+          </div>
+          <div class="bt-run"><button class="btn pri" type="button" id="btRun">Run backtest</button><span class="muted" id="btInfo"></span></div>
+        </div>
+
+        <div id="btOut" class="bt-out">
+          <div class="bt-empty">Pick a symbol, a setup and challenge rules, then run the backtest. Results appear here as a challenge report.</div>
+        </div>
+      </div>
     </section>
 
     <section class="sub" id="sub-alerts">
@@ -341,7 +436,7 @@ src.on("message", raw =&gt; {
   <button type="button" data-m="center" data-sub="chart" aria-current="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>Chart</button>
   <button type="button" data-m="analysis"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Signals</button>
   <button type="button" data-m="center" data-sub="screener"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>Screener</button>
-  <button type="button" data-m="center" data-sub="alerts"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4zM10 21h4"/></svg>Alerts</button>
+  <button type="button" data-m="center" data-sub="backtest"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg>Backtest</button>
 </nav>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
@@ -568,6 +663,11 @@ function draw(){
   if(S.ov.has("ema20"))line(X.E20,C.gold,1.6);
   if(S.ov.has("ema50"))line(X.E50,C.blue,1.6);
   if(S.ov.has("sma20"))line(X.S20,C.pink,1.4);
+  if(typeof BT!=="undefined"&&BT.res&&BT.res.cfg.sym===key&&BT.res.cfg.tf===S.tf){const tt=X.b.map(b=>b.t);const at=t=>{let a=0,z=tt.length-1;if(t<tt[0]||t>tt[z]+(TFSEC[S.tf]||86400))return -1;while(a<z){const m=(a+z+1)>>1;if(tt[m]<=t)a=m;else z=m-1}return a};
+    for(const tr of BT.res.trades){const i0=at(tr.t0),i1=at(tr.t1);if(i0<start&&i1<start)continue;if(i0>=end)continue;
+      const win=tr.pnl>0;ctx.strokeStyle=win?"rgba(43,196,138,.7)":"rgba(240,86,106,.7)";ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(x(Math.max(i0,start)),y(tr.entry));ctx.lineTo(x(Math.min(i1,end-1)),y(tr.exit));ctx.stroke();ctx.setLineDash([]);
+      if(i0>=start){const xx=x(i0),yy=tr.side>0?y(X.b[i0].l)+10:y(X.b[i0].h)-10;ctx.fillStyle=tr.side>0?C.up:C.down;ctx.beginPath();if(tr.side>0){ctx.moveTo(xx,yy-6);ctx.lineTo(xx-5,yy+3);ctx.lineTo(xx+5,yy+3)}else{ctx.moveTo(xx,yy+6);ctx.lineTo(xx-5,yy-3);ctx.lineTo(xx+5,yy-3)}ctx.fill()}
+      if(i1<end&&i1>=start){ctx.fillStyle=win?C.up:C.down;ctx.fillRect(x(i1)-3,y(tr.exit)-3,6,6)}}}
   ctx.restore();
   // axis tags
   const tag=(v,bg,fg,label)=>{if(v<lo||v>hi)return;const yy=y(v);ctx.fillStyle=bg;rr(W-RA+1,yy-9,RA-3,18,4);ctx.fill();ctx.fillStyle=fg;ctx.textAlign="left";ctx.font="600 10.5px "+css("--mono");ctx.fillText((label?label+" ":"")+f(key,v),W-RA+5,yy+.5)};
@@ -738,8 +838,197 @@ setInterval(()=>{if(!S.sim&&!LIVE.size)return;if(S.sim)simTick();tickN++;renderH
 $("simBtn").onclick=()=>{S.sim=!S.sim;$("simBtn").textContent=S.sim?"Pause":"Resume";livePill()};
 setInterval(()=>{$("clock").textContent=new Date().toLocaleTimeString("en-GB",{timeZone:"Asia/Phnom_Penh"})+" ICT"},1000);
 
+/* ===== Backtester + prop-firm challenge report ===== */
+const BT={res:null,cache:{}};
+const STRATS={
+  ema:{name:"EMA 20/50 trend pullback",desc:"Trades with the trend. Long when EMA20 is above EMA50 and a candle dips to EMA20 then closes back above it. Short is the mirror image."},
+  brk:{name:"Donchian 20 breakout",desc:"Enters when a candle closes beyond the highest high (long) or lowest low (short) of the previous 20 candles."},
+  rsi:{name:"RSI 30/70 reversal · EMA50 filter",desc:"Long when RSI crosses back above 30 while price is above EMA50. Short when RSI crosses back below 70 while price is below EMA50."},
+  macd:{name:"MACD cross · EMA50 trend",desc:"Long when the MACD line crosses above its signal with price above EMA50. Short on the opposite cross below EMA50."},
+  orb:{name:"Asian range breakout · London session",desc:"Marks the 00:00–06:00 UTC range, then trades the first close outside it between 07:00 and 11:00 UTC. Stop goes at the other side of the range (or the ATR stop if tighter). Intraday timeframes only."}
+};
+const RULES={
+  p1:{name:"2-Step challenge · Phase 1",target:10,daily:5,max:10,trail:0,minD:4},
+  p2:{name:"2-Step challenge · Phase 2",target:5,daily:5,max:10,trail:0,minD:4},
+  one:{name:"1-Step challenge",target:10,daily:3,max:6,trail:1,minD:0},
+  fund:{name:"Funded account (no target)",target:0,daily:5,max:10,trail:0,minD:0},
+  cust:{name:"Custom"}
+};
+const HIST_NAME=typeof FBNAME!=="undefined"?FBNAME:{};
+function btSpreadDefault(k){const p=SYMS[k].bars.at(-1).c;return k.includes("XAU")?0.25:k.includes("EUR")?0.00012:SYMS[k].grp==="crypto"?+(p*0.0002).toFixed(2):k.startsWith("MT5:")?(k.includes("US30")?2.5:k.includes("US100")?1.5:0.5):0.02}
+function btInit(){
+  $("btSym").innerHTML=KEYS.map(k=>`<option value="${k}">${SYMS[k].tk}</option>`).join("");
+  $("btStrat").innerHTML=Object.entries(STRATS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("");
+  $("btRule").innerHTML=Object.entries(RULES).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join("");
+  const setRule=()=>{const r=RULES[$("btRule").value];if(!r.target&&r.target!==0)return;$("btTarget").value=r.target;$("btDaily").value=r.daily;$("btMaxL").value=r.max;$("btTrail").value=r.trail;$("btMinD").value=r.minD};
+  $("btRule").onchange=setRule;["btTarget","btDaily","btMaxL","btTrail","btMinD"].forEach(id=>$(id).addEventListener("input",()=>$("btRule").value="cust"));
+  const setStrat=()=>{$("btStratDesc").textContent=STRATS[$("btStrat").value].desc};$("btStrat").onchange=setStrat;
+  $("btSym").onchange=()=>{$("btSpread").value=btSpreadDefault($("btSym").value)};
+  $("btSym").value="OANDA:XAUUSD";$("btSpread").value=btSpreadDefault("OANDA:XAUUSD");setRule();setStrat();
+  $("btRun").onclick=btRun;
+}
+async function btLoad(key,tf){
+  if(tf==="1D")return{bars:SYMS[key].bars.slice(0,-0||undefined),src:"TradingView daily"};
+  const ck=key+"|"+tf;if(BT.cache[ck]&&Date.now()-BT.cache[ck].at<600000)return BT.cache[ck];
+  let out=null;
+  if(SYMS[key].grp==="crypto"){const sym=key.split(":")[1];let all=[],end=null;
+    for(let p=0;p<5;p++){let got=null;for(const host of["https://data-api.binance.vision","https://api.binance.com"]){try{const r=await fetch(`${host}/api/v3/klines?symbol=${sym}&interval=${BNTF[tf]}&limit=1000${end?"&endTime="+end:""}`);if(r.ok){got=await r.json();break}}catch(e){}}
+      if(!got||!got.length)break;all=got.map(k=>({t:Math.floor(k[0]/1000),o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]})).concat(all);end=got[0][0]-1;if(got.length<1000)break}
+    if(all.length)out={bars:all,src:"Binance"}}
+  else if(window.FIREBASE_DB&&HIST_NAME[key]){try{const t=await fetch(`${window.FIREBASE_DB}/hist/${HIST_NAME[key]}/${tf}.json`).then(r=>r.json());if(t){const b=parseRows(t);if(b.length)out={bars:b,src:key.startsWith("MT5:")&&b.length&&Math.abs(b.at(-1).c/SYMS[key].bars.at(-1).c-1)>0.004?"Yahoo index futures":SYMS[key].grp==="us"&&!key.startsWith("MT5:")?"Yahoo":"your MT5"}}}catch(e){}}
+  if(!out){const ib=IB[key]&&IB[key][tf];if(ib&&ib.length>60)out={bars:ib.slice(),src:"recent candles only"}}
+  if(out){out.at=Date.now();BT.cache[ck]=out}
+  return out;
+}
+function btSignals(b,strat,dir){
+  const c=b.map(x=>x.c),E20=ema(c,20),E50=ema(c,50),A=atr(b),R=rsi(c),M=macd(c),n=b.length,sig=new Array(n).fill(0),stopAt=new Array(n).fill(null);
+  const DC=donch(b,20);
+  let rng=null;
+  for(let i=51;i<n;i++){
+    let s=0;
+    if(strat==="ema"){if(E20[i]>E50[i]&&c[i]>E50[i]&&b[i].l<=E20[i]&&c[i]>E20[i]&&c[i]>b[i].o)s=1;if(E20[i]<E50[i]&&c[i]<E50[i]&&b[i].h>=E20[i]&&c[i]<E20[i]&&c[i]<b[i].o)s=-1}
+    else if(strat==="brk"){if(DC.u[i-1]!=null&&c[i]>DC.u[i-1])s=1;if(DC.l[i-1]!=null&&c[i]<DC.l[i-1])s=-1}
+    else if(strat==="rsi"){if(R[i-1]<30&&R[i]>=30&&c[i]>E50[i])s=1;if(R[i-1]>70&&R[i]<=70&&c[i]<E50[i])s=-1}
+    else if(strat==="macd"){const h0=M.h[i-1],h1=M.h[i];if(h0!=null&&h1!=null){if(h0<=0&&h1>0&&c[i]>E50[i])s=1;if(h0>=0&&h1<0&&c[i]<E50[i])s=-1}}
+    else if(strat==="orb"){const d=new Date(b[i].t*1000),hr=d.getUTCHours(),day=d.toISOString().slice(0,10);
+      if(!rng||rng.day!==day)rng={day,hi:-Infinity,lo:Infinity,done:false};
+      if(hr<6){rng.hi=Math.max(rng.hi,b[i].h);rng.lo=Math.min(rng.lo,b[i].l)}
+      else if(hr>=7&&hr<11&&!rng.done&&isFinite(rng.hi)){if(c[i]>rng.hi){s=1;stopAt[i]=rng.lo;rng.done=true}else if(c[i]<rng.lo){s=-1;stopAt[i]=rng.hi;rng.done=true}}}
+    if(dir==="long"&&s<0)s=0;if(dir==="short"&&s>0)s=0;
+    sig[i]=s;
+  }
+  return{sig,A,stopAt};
+}
+function btSim(b,cfg){
+  const{sig,A,stopAt}=btSignals(b,cfg.strat,cfg.dir),n=b.length,trades=[],perDay={};
+  let pos=null,pend=null;
+  const risk$=cfg.bal*cfg.risk/100;
+  for(let i=51;i<n;i++){
+    const bar=b[i];
+    if(pend&&!pos){const e=bar.o;const sd=Math.abs(e-pend.sl);if(sd>0){pos={side:pend.side,entry:e,sl:pend.sl,tp:e+pend.side*sd*cfg.rr,sd,i0:i,t0:bar.t}}pend=null}
+    if(pos){let exit=null,why="";
+      if(pos.side>0){if(bar.l<=pos.sl){exit=pos.sl;why="SL"}else if(bar.h>=pos.tp){exit=pos.tp;why="TP"}}
+      else{if(bar.h>=pos.sl){exit=pos.sl;why="SL"}else if(bar.l<=pos.tp){exit=pos.tp;why="TP"}}
+      if(exit==null&&i===n-1){exit=bar.c;why="END"}
+      if(exit!=null){const size=risk$/pos.sd,r=pos.side*(exit-pos.entry)/pos.sd,cost=cfg.spread*size+cfg.comm;
+        trades.push({side:pos.side,t0:pos.t0,t1:bar.t,entry:pos.entry,exit,sl:pos.sl,tp:pos.tp,r,pnl:r*risk$-cost,why,size});pos=null}}
+    if(!pos&&!pend&&sig[i]&&i<n-1){const day=new Date(b[i+1].t*1000).toISOString().slice(0,10);perDay[day]=perDay[day]||0;
+      if(perDay[day]<cfg.maxDay&&A[i]){const e=b[i].c;let sl=e-sig[i]*A[i]*cfg.stop;
+        if(stopAt[i]!=null){const alt=stopAt[i];if(Math.abs(e-alt)<Math.abs(e-sl))sl=alt}
+        pend={side:sig[i],sl};perDay[day]++}}
+  }
+  return trades;
+}
+function dayKey(t){return new Date(t*1000).toISOString().slice(0,10)}
+function btEval(trades,cfg){
+  const B=cfg.bal,tgt=B*cfg.target/100,dl=B*cfg.daily/100,ml=B*cfg.maxL/100;
+  let bal=B,peak=B,status="prog",at=null,reason="",days=new Set(),dayStart={},minFloor=B-ml,worstDayUse=0,maxLossUse=0;
+  const curve=[{t:trades.length?trades[0].t0:0,bal:B}];
+  for(const tr of trades){
+    const d=dayKey(tr.t1);if(dayStart[d]==null)dayStart[d]=bal;days.add(dayKey(tr.t0));
+    bal+=tr.pnl;peak=Math.max(peak,bal);
+    const floor=cfg.trail?Math.min(B,peak-ml):B-ml;
+    curve.push({t:tr.t1,bal,floor});
+    const dayLoss=dayStart[d]-bal;worstDayUse=Math.max(worstDayUse,dayLoss/dl);maxLossUse=Math.max(maxLossUse,(peak-bal)/ml);
+    if(status!=="prog")continue;
+    if(dayLoss>=dl){status="fail";at=tr.t1;reason=`Daily loss limit hit on ${new Date(tr.t1*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}`}
+    else if(bal<=floor){status="fail";at=tr.t1;reason=`Max loss limit hit on ${new Date(tr.t1*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}`}
+    else if(cfg.target>0&&bal-B>=tgt&&days.size>=cfg.minD){status="pass";at=tr.t1;reason=`Target reached on ${new Date(tr.t1*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} after ${days.size} trading days`}
+  }
+  if(cfg.target===0&&status==="prog"&&trades.length)status=bal>B?"pass":"prog";
+  return{status,at,reason,bal,peak,days:days.size,curve,worstDayUse,maxLossUse};
+}
+function btStats(trades,cfg){
+  const w=trades.filter(t=>t.pnl>0),l=trades.filter(t=>t.pnl<=0),gp=w.reduce((s,t)=>s+t.pnl,0),gl=-l.reduce((s,t)=>s+t.pnl,0);
+  const byDay={};trades.forEach(t=>{const d=dayKey(t.t1);byDay[d]=(byDay[d]||0)+t.pnl});
+  const dv=Object.entries(byDay).sort();const net=gp-gl;
+  let bal=cfg.bal,pk=cfg.bal,mdd=0;trades.forEach(t=>{bal+=t.pnl;pk=Math.max(pk,bal);mdd=Math.max(mdd,(pk-bal)/cfg.bal)});
+  let ls=0,cur=0;trades.forEach(t=>{cur=t.pnl<=0?cur+1:0;ls=Math.max(ls,cur)});
+  const best=dv.length?Math.max(...dv.map(x=>x[1])):0,worst=dv.length?Math.min(...dv.map(x=>x[1])):0;
+  const rs=trades.map(t=>t.r),avgR=rs.length?rs.reduce((a,b)=>a+b,0)/rs.length:0;
+  return{n:trades.length,wr:trades.length?w.length/trades.length*100:0,pf:gl?gp/gl:(gp?Infinity:0),net,avgW:w.length?gp/w.length:0,avgL:l.length?gl/l.length:0,avgR,mdd:mdd*100,best,worst,ls,byDay:dv,consistency:net>0?best/net*100:0,longs:trades.filter(t=>t.side>0).length};
+}
+function btMonteCarlo(trades,cfg,runs=1000){
+  if(trades.length<5)return null;
+  const days={};trades.forEach(t=>{(days[dayKey(t.t1)]=days[dayKey(t.t1)]||[]).push(t)});const groups=Object.values(days);
+  let pass=0,fail=0;
+  for(let k=0;k<runs;k++){const g=groups.slice();for(let i=g.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[g[i],g[j]]=[g[j],g[i]]}
+    let d0=Date.UTC(2020,0,1)/1000;const seq=[];g.forEach(day=>{day.forEach(t=>seq.push({...t,t0:d0,t1:d0}));d0+=86400});
+    const e=btEval(seq,cfg);if(e.status==="pass")pass++;else if(e.status==="fail")fail++}
+  return{pass:pass/runs*100,fail:fail/runs*100,runs};
+}
+async function btRun(){
+  const cfg={sym:$("btSym").value,tf:$("btTf").value,strat:$("btStrat").value,dir:$("btDir").value,stop:+$("btStop").value||1.5,rr:+$("btRR").value||2,maxDay:+$("btMaxDay").value||1,
+    bal:+$("btBal").value,risk:+$("btRisk").value||0.5,spread:+$("btSpread").value||0,comm:+$("btComm").value||0,target:+$("btTarget").value||0,daily:+$("btDaily").value||5,maxL:+$("btMaxL").value||10,trail:+$("btTrail").value,minD:+$("btMinD").value||0};
+  if(cfg.strat==="orb"&&(cfg.tf==="1D"||cfg.tf==="4H")){$("btInfo").textContent="Asian range breakout needs 5m, 15m or 1H candles.";return}
+  $("btInfo").textContent="Loading history…";$("btRun").disabled=true;
+  const data=await btLoad(cfg.sym,cfg.tf);$("btRun").disabled=false;
+  if(!data||data.bars.length<80){$("btInfo").textContent=`Not enough ${cfg.tf} history for ${SYMS[cfg.sym].tk} yet. History arrives from the price bridge on your PC within about an hour of it starting.`;return}
+  const b=data.bars;const trades=btSim(b,cfg),ev=btEval(trades,cfg),st=btStats(trades,cfg),mc=btMonteCarlo(trades,cfg);
+  BT.res={cfg,trades,ev,st,mc,src:data.src,from:b[0].t,to:b.at(-1).t,bars:b.length};
+  $("btInfo").textContent=`${b.length.toLocaleString()} candles · ${new Date(b[0].t*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} → ${new Date(b.at(-1).t*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})} · source: ${data.src}`;
+  btRender();if(cfg.sym===S.sym)draw();
+}
+function money(x){return(x<0?"−$":"$")+Math.abs(x).toLocaleString("en-US",{maximumFractionDigits:0})}
+function btRender(){
+  const{cfg,trades,ev,st,mc}=BT.res,B=cfg.bal,k=cfg.sym,net=ev.bal-B;
+  const badge=ev.status==="pass"?(cfg.target?"PASSED":"PROFITABLE"):ev.status==="fail"?"FAILED":"IN PROGRESS";
+  const tgtPct=cfg.target?Math.max(0,Math.min(100,(Math.max(...ev.curve.map(p=>p.bal))-B)/(B*cfg.target/100)*100)):0;
+  const ruleName=RULES[$("btRule").value].name;
+  const bar=(pct,col)=>`<div class="bt-bar"><i style="width:${Math.max(0,Math.min(100,pct)).toFixed(1)}%;background:${col}"></i></div>`;
+  const dayUse=ev.worstDayUse*100,maxUse=Math.max(0,(B-Math.min(...ev.curve.map(p=>p.bal)))/(B*cfg.maxL/100)*100);
+  $("btOut").innerHTML=`
+  <div class="bt-hero"><div class="bt-badge ${ev.status}">${badge}<small>${ruleName}</small></div>
+    <div><div class="bt-heroinfo"><div><span>Final balance</span><div class="big">${money(ev.bal)}</div></div><div><span>Net P&amp;L</span><div class="big ${net>=0?"up":"down"}">${net>=0?"+":""}${money(net)} <small style="font-size:14px">(${(net/B*100).toFixed(2)}%)</small></div></div></div>
+    <p class="bt-note" style="margin-top:6px">${ev.reason||"Neither the target nor a loss limit was reached in the tested period."} · ${SYMS[k].tk} ${cfg.tf} · ${STRATS[cfg.strat].name} · risk ${cfg.risk}% of ${money(B)} per trade</p></div></div>
+  <div class="bt-goals">
+    ${cfg.target?`<div class="bt-goal"><div class="top"><span>Profit target ${cfg.target}% (${money(B*cfg.target/100)})</span><b class="${tgtPct>=100?"bt-ok":""}">${tgtPct.toFixed(0)}%</b></div>${bar(tgtPct,"var(--up)")}<div class="sub2">Best balance reached ${money(Math.max(...ev.curve.map(p=>p.bal)))}</div></div>`:""}
+    <div class="bt-goal"><div class="top"><span>Max daily loss ${cfg.daily}% (${money(B*cfg.daily/100)})</span><b class="${dayUse>=100?"bt-bad":dayUse>70?"":"bt-ok"}">${dayUse.toFixed(0)}% used</b></div>${bar(dayUse,dayUse>=100?"var(--down)":dayUse>70?"var(--gold)":"var(--up)")}<div class="sub2">Worst day ${money(st.worst)}</div></div>
+    <div class="bt-goal"><div class="top"><span>Max loss ${cfg.maxL}% ${cfg.trail?"trailing":"static"} (${money(B*cfg.maxL/100)})</span><b class="${ev.status==="fail"&&ev.reason.startsWith("Max")?"bt-bad":maxUse>70?"":"bt-ok"}">${Math.min(100,maxUse).toFixed(0)}% used</b></div>${bar(maxUse,maxUse>=100?"var(--down)":maxUse>70?"var(--gold)":"var(--up)")}<div class="sub2">Max drawdown ${st.mdd.toFixed(2)}% of account</div></div>
+    <div class="bt-goal"><div class="top"><span>Min trading days ${cfg.minD}</span><b class="${ev.days>=cfg.minD?"bt-ok":""}">${ev.days} days</b></div>${bar(cfg.minD?ev.days/cfg.minD*100:100,"var(--blue)")}<div class="sub2">Days with at least one trade opened</div></div>
+  </div>
+  <div class="bt-panel"><h4>Equity curve</h4><canvas class="bt-canvas" id="btEq"></canvas></div>
+  <div class="bt-cards">
+    ${[["Trades",st.n,""],["Win rate",st.wr.toFixed(1)+"%",""],["Profit factor",isFinite(st.pf)?st.pf.toFixed(2):"∞",st.pf>=1?"up":"down"],["Expectancy",(st.avgR>=0?"+":"")+st.avgR.toFixed(2)+"R",st.avgR>=0?"up":"down"],
+       ["Avg win",money(st.avgW),"up"],["Avg loss",money(-st.avgL),"down"],["Best day",money(st.best),"up"],["Worst day",money(st.worst),"down"],
+       ["Max drawdown",st.mdd.toFixed(2)+"%","down"],["Losing streak",st.ls,""],["Consistency",st.consistency?st.consistency.toFixed(0)+"%":"—",st.consistency>40?"down":""],["Long / short",`${st.longs} / ${st.n-st.longs}`,""]]
+      .map(([a,v,c])=>`<div class="bt-card"><span>${a}</span><b class="${c}">${v}</b></div>`).join("")}
+  </div>
+  <div class="bt-panel"><h4>Daily P&amp;L</h4><canvas class="bt-canvas small" id="btDay"></canvas></div>
+  ${mc?`<div class="bt-panel"><h4>Pass probability · ${mc.runs.toLocaleString()} shuffled runs</h4><div class="bt-mc"><div class="big ${mc.pass>=50?"up":"down"}">${mc.pass.toFixed(0)}%</div><div><div>pass the challenge</div><div class="muted">${mc.fail.toFixed(0)}% fail · ${(100-mc.pass-mc.fail).toFixed(0)}% unfinished</div></div></div><p class="bt-note">Same trades, trading days shuffled into random order. Shows how much of the result depends on luck of sequence.</p></div>`:""}
+  <div class="bt-panel"><h4>Trade log · ${trades.length} trades</h4><div class="bt-log"><table><thead><tr><th>Opened</th><th>Side</th><th>Entry</th><th>Stop</th><th>Target</th><th>Exit</th><th>Result</th><th>R</th><th>P&amp;L</th></tr></thead><tbody>
+    ${trades.slice().reverse().slice(0,200).map(t=>`<tr><td>${new Date(t.t0*1000).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</td><td class="${t.side>0?"up":"down"}">${t.side>0?"Long":"Short"}</td><td>${f(k,t.entry)}</td><td>${f(k,t.sl)}</td><td>${f(k,t.tp)}</td><td>${f(k,t.exit)}</td><td><span class="tag ${t.why==="TP"?"up":t.why==="SL"?"down":"neu"}">${t.why==="TP"?"Target":t.why==="SL"?"Stop":"Open at end"}</span></td><td class="${t.r>=0?"up":"down"}">${t.r>=0?"+":""}${t.r.toFixed(2)}</td><td class="${t.pnl>=0?"up":"down"}">${money(t.pnl)}</td></tr>`).join("")}
+  </tbody></table></div></div>
+  <p class="bt-note">Backtest on historical candles: entries at the next candle's open, stop checked before target when both are touched in one candle, spread and commission deducted. Past results do not guarantee future performance. Trades also appear on the chart for ${SYMS[k].tk} ${cfg.tf}.</p>`;
+  requestAnimationFrame(btDrawCharts);
+}
+function btDrawCharts(){
+  if(!BT.res)return;const{cfg,ev,st}=BT.res,B=cfg.bal;
+  const eq=$("btEq");if(eq){const r=eq.getBoundingClientRect(),d=devicePixelRatio||1;eq.width=r.width*d;eq.height=r.height*d;const g=eq.getContext("2d");g.setTransform(d,0,0,d,0,0);
+    const W=r.width,H=r.height,L=8,R=74,T=10,Bm=18;const pts=ev.curve;const tgt=B*(1+cfg.target/100),flo=B*(1-cfg.maxL/100);
+    const vals=pts.map(p=>p.bal).concat([B,flo]).concat(cfg.target?[tgt]:[]);let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*0.08||B*0.01;lo-=pad;hi+=pad;
+    const X=i=>L+i/(Math.max(1,pts.length-1))*(W-L-R),Y=v=>T+(hi-v)/(hi-lo)*(H-T-Bm);
+    g.font="500 10.5px "+css("--mono");g.textBaseline="middle";
+    const line=(v,col,lab,dash)=>{g.strokeStyle=col;g.setLineDash(dash||[5,4]);g.beginPath();g.moveTo(L,Y(v));g.lineTo(W-R,Y(v));g.stroke();g.setLineDash([]);g.fillStyle=col;g.textAlign="left";g.fillText(lab,W-R+6,Y(v))};
+    line(B,css("--muted"),money(B));if(cfg.target)line(tgt,css("--up"),"Target");line(flo,css("--down"),cfg.trail?"Floor (start)":"Max loss");
+    if(cfg.trail){g.strokeStyle="rgba(240,86,106,.6)";g.setLineDash([2,3]);g.beginPath();pts.forEach((p,i)=>{const fv=p.floor??flo;i?g.lineTo(X(i),Y(fv)):g.moveTo(X(i),Y(fv))});g.stroke();g.setLineDash([])}
+    const grad=g.createLinearGradient(0,T,0,H-Bm);grad.addColorStop(0,"rgba(232,176,75,.25)");grad.addColorStop(1,"rgba(232,176,75,0)");
+    g.beginPath();pts.forEach((p,i)=>i?g.lineTo(X(i),Y(p.bal)):g.moveTo(X(i),Y(p.bal)));g.lineTo(X(pts.length-1),H-Bm);g.lineTo(X(0),H-Bm);g.fillStyle=grad;g.fill();
+    g.strokeStyle=css("--gold");g.lineWidth=2;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(X(i),Y(p.bal)):g.moveTo(X(i),Y(p.bal)));g.stroke();g.lineWidth=1;
+    if(ev.at){const i=pts.findIndex(p=>p.t===ev.at);if(i>=0){g.fillStyle=ev.status==="pass"?css("--up"):css("--down");g.beginPath();g.arc(X(i),Y(pts[i].bal),5,0,7);g.fill();g.textAlign="center";g.fillText(ev.status==="pass"?"Passed":"Failed",X(i),Math.max(T+6,Y(pts[i].bal)-12))}}
+    g.fillStyle=css("--muted");g.textAlign="left";if(pts.length>1){g.fillText(new Date(pts[1].t*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}),L,H-7);g.textAlign="right";g.fillText(new Date(pts.at(-1).t*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit"}),W-R,H-7)}}
+  const dc=$("btDay");if(dc){const r=dc.getBoundingClientRect(),d=devicePixelRatio||1;dc.width=r.width*d;dc.height=r.height*d;const g=dc.getContext("2d");g.setTransform(d,0,0,d,0,0);
+    const W=r.width,H=r.height,L=8,R=74,T=8,Bm=16,days=st.byDay;if(!days.length)return;const mx=Math.max(...days.map(x=>Math.abs(x[1])),B*cfg.daily/100*0.5);
+    const Y=v=>T+(H-T-Bm)/2-v/mx*((H-T-Bm)/2);const bw=(W-L-R)/days.length;
+    g.strokeStyle=css("--line");g.beginPath();g.moveTo(L,Y(0));g.lineTo(W-R,Y(0));g.stroke();
+    const dl=-B*cfg.daily/100;if(Math.abs(dl)<=mx){g.strokeStyle=css("--down");g.setLineDash([4,4]);g.beginPath();g.moveTo(L,Y(dl));g.lineTo(W-R,Y(dl));g.stroke();g.setLineDash([]);g.fillStyle=css("--down");g.font="500 10px "+css("--mono");g.textBaseline="middle";g.fillText("Daily limit",W-R+6,Y(dl))}
+    days.forEach(([dd,v],i)=>{g.fillStyle=v>=0?css("--up"):css("--down");const y0=Y(0),y1=Y(v);g.fillRect(L+i*bw+bw*0.15,Math.min(y0,y1),Math.max(1,bw*0.7),Math.max(1,Math.abs(y1-y0)))});
+    g.fillStyle=css("--muted");g.font="500 10px "+css("--mono");g.textBaseline="middle";g.textAlign="left";g.fillText(money(mx),W-R+6,T+4);g.fillText(money(-mx),W-R+6,H-Bm-4)}
+}
+window.addEventListener("resize",()=>{if(BT.res&&S.sub==="backtest")btDrawCharts()});
+
 /* ===== navigation ===== */
-function setSub(v){S.sub=v;document.querySelectorAll(".ctab").forEach(t=>t.setAttribute("aria-selected",t.dataset.sub===v));document.querySelectorAll(".sub").forEach(s=>s.classList.toggle("on",s.id==="sub-"+v));if(v==="screener")renderScreener();if(v==="alerts"){renderAlertForm();renderAlerts()}if(v==="chart")requestAnimationFrame(resize)}
+function setSub(v){S.sub=v;document.querySelectorAll(".ctab").forEach(t=>t.setAttribute("aria-selected",t.dataset.sub===v));document.querySelectorAll(".sub").forEach(s=>s.classList.toggle("on",s.id==="sub-"+v));if(v==="screener")renderScreener();if(v==="alerts"){renderAlertForm();renderAlerts()}if(v==="chart")requestAnimationFrame(resize);if(v==="backtest"&&BT.res)requestAnimationFrame(btDrawCharts)}
 document.querySelector(".ctabs").addEventListener("click",e=>{const t=e.target.closest(".ctab");if(t){setSub(t.dataset.sub);syncNav()}});
 function setM(m,sub){document.body.dataset.m=m;if(sub)setSub(sub);syncNav();scrollTo(0,0);if(m==="center")requestAnimationFrame(resize)}
 function syncNav(){document.querySelectorAll("#mnav button").forEach(b=>b.setAttribute("aria-current",String(b.dataset.m===document.body.dataset.m&&(!b.dataset.sub||b.dataset.sub===S.sub))))}
@@ -750,7 +1039,7 @@ function renderAll(){renderWL();renderHead();renderAnalysis();draw();if(S.sub===
 
 document.body.dataset.m="center";
 $("dataNote").innerHTML=window.FIREBASE_DB?`Daily history: TradingView · intraday &amp; live: your MT5, Binance, Yahoo<br>Tags: <b style="color:var(--up)">LIVE</b> real price · CLOSED market shut · SIM no feed`:`Bars: TradingView daily, delayed/EOD · last bar ${ASOF.toISOString().slice(0,10)}<br>Ticks after that are simulated from each symbol's ATR.`;
-renderGroups();renderOvl();renderPresets();renderRules();renderAll();renderScreener();renderAlerts();
+renderGroups();renderOvl();renderPresets();renderRules();renderAll();renderScreener();renderAlerts();btInit();
 </script>
 
 </body></html>

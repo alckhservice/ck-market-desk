@@ -18,6 +18,10 @@ python mt5_firebase_bridge.py
 
 First run asks for the Firebase database secret (Firebase console → ck-market-desk → Project settings → Service accounts → Database secrets). It is saved locally in `firebase_secret.txt`, which is never committed.
 
+## Timeframes
+
+Chart buttons 1m 3m 5m 15m 30m 1H 4H 1D 1W. Intraday candles come from your MT5 (gold, EURUSD, indices), Binance (crypto) and Yahoo (US stocks), published by the bridge to Firebase `candles/`.
+
 ## Runs by itself
 
 The bridge is registered as the Windows scheduled task **CK Market Desk Bridge**. It starts hidden at logon, opens MT5 if needed, and reconnects after drops. Log: `Documents\CK-Market-Desk\bridge.log`.

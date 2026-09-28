@@ -235,8 +235,8 @@ tr.dimrow td{opacity:.35}
         <div class="bigc" id="cChg"></div>
       </div>
       <div class="toolbar">
-        <div class="seg" id="tfSeg"><button type="button" data-tf="1D" aria-pressed="true">1D</button><button type="button" data-tf="1W" aria-pressed="false">1W</button></div>
-        <div class="seg" id="rgSeg"><button type="button" data-r="30" aria-pressed="false">1M</button><button type="button" data-r="60" aria-pressed="true">3M</button><button type="button" data-r="9999" aria-pressed="false">All</button></div>
+        <div class="seg" id="tfSeg"><button type="button" data-tf="1m" aria-pressed="false">1m</button><button type="button" data-tf="3m" aria-pressed="false">3m</button><button type="button" data-tf="5m" aria-pressed="false">5m</button><button type="button" data-tf="15m" aria-pressed="false">15m</button><button type="button" data-tf="30m" aria-pressed="false">30m</button><button type="button" data-tf="1H" aria-pressed="false">1H</button><button type="button" data-tf="4H" aria-pressed="false">4H</button><button type="button" data-tf="1D" aria-pressed="true">1D</button><button type="button" data-tf="1W" aria-pressed="false">1W</button></div>
+        <div class="seg" id="rgSeg"><button type="button" data-r="30" aria-pressed="false">30</button><button type="button" data-r="60" aria-pressed="true">60</button><button type="button" data-r="120" aria-pressed="false">120</button><button type="button" data-r="9999" aria-pressed="false">All</button></div>
         <div class="seg" id="ctSeg"><button type="button" data-ct="candle" aria-pressed="true">Candles</button><button type="button" data-ct="line" aria-pressed="false">Line</button></div>
         <span class="tsep"></span>
         <div id="ovl" style="display:contents"></div>
@@ -397,8 +397,12 @@ function pivots(b,k=3){const H=[],L=[];for(let i=k;i<b.length-k;i++){let hi=true
 
 function weekly(b){const out=[];let cur=null,key=null;for(const x of b){const wk=Math.floor((x.t/86400+3)/7);if(wk!==key){if(cur)out.push(cur);key=wk;cur={...x}}else{cur.h=Math.max(cur.h,x.h);cur.l=Math.min(cur.l,x.l);cur.c=x.c;cur.v+=x.v}}if(cur)out.push(cur);return out}
 
+const TFSEC={"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1H":3600,"4H":14400};
+const isIntra=tf=>tf in TFSEC;
+const tfLabel=tf=>({"1m":"1 min","3m":"3 min","5m":"5 min","15m":"15 min","30m":"30 min","1H":"1 hour","4H":"4 hour","1D":"Daily","1W":"Weekly"})[tf]||tf;
+function barsFor(key,tf){const s=SYMS[key];if(tf==="1W")return weekly(s.bars);if(isIntra(tf))return (IB[key]&&IB[key][tf])||null;return s.bars}
 function series(key,tf){
-  const s=SYMS[key];const b=tf==="1W"?weekly(s.bars):s.bars;const c=b.map(x=>x.c);
+  let b=barsFor(key,tf);if(!b||b.length<3)b=SYMS[key].bars;const c=b.map(x=>x.c);
   const A=atr(b),R=rsi(c),M=macd(c),E20=ema(c,20),E50=ema(c,Math.min(50,Math.max(10,b.length-5))),S20=sma(c,20),BB=boll(c),DC=donch(b),V20=sma(b.map(x=>x.v),20);
   return{b,c,A,R,M,E20,E50,S20,BB,DC,V20,e50n:Math.min(50,Math.max(10,b.length-5))};
 }
@@ -475,9 +479,44 @@ const OVL=[["ema20","EMA 20","var(--gold)"],["ema50","EMA 50","var(--blue)"],["s
 function renderOvl(){$("ovl").innerHTML=OVL.map(([k,l,c])=>{const on=k==="rsi"||k==="macd"?S.panes.has(k):S.ov.has(k);return`<button type="button" class="chip" data-o="${k}" aria-pressed="${on}"><i style="background:${c}"></i>${l}</button>`}).join("")}
 $("ovl").addEventListener("click",e=>{const b=e.target.closest("[data-o]");if(!b)return;const k=b.dataset.o;const set=k==="rsi"||k==="macd"?S.panes:S.ov;set.has(k)?set.delete(k):set.add(k);renderOvl();draw()});
 function segBind(id,attr,fn){$(id).addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;[...$(id).children].forEach(x=>x.setAttribute("aria-pressed",x===b));fn(b.dataset[attr])})}
-segBind("tfSeg","tf",v=>{S.tf=v;S.offset=0;S.range=v==="1W"?9999:60;[...$("rgSeg").children].forEach(x=>x.setAttribute("aria-pressed",String(+x.dataset.r===S.range)));renderAll()});
+segBind("tfSeg","tf",v=>{S.tf=v;S.offset=0;S.range=v==="1W"?9999:isIntra(v)?120:60;ensureIntra(S.sym,v);[...$("rgSeg").children].forEach(x=>x.setAttribute("aria-pressed",String(+x.dataset.r===S.range)));renderAll()});
 segBind("rgSeg","r",v=>{S.range=+v;S.offset=0;draw()});
 segBind("ctSeg","ct",v=>{S.ct=v;draw()});
+
+/* ===== intraday candles: Binance (crypto) or Firebase (MT5 + US stocks via the PC bridge) ===== */
+const IB={},IST={};let intraES=null,intraKey=null;
+const FBNAME={"OANDA:XAUUSD":"XAUUSD","FX:EURUSD":"EURUSD","MT5:US100":"US100","MT5:US500":"US500","MT5:US30":"US30","NASDAQ:GOOGL":"GOOGL","NASDAQ:NVDA":"NVDA","NASDAQ:AAPL":"AAPL","NASDAQ:MSFT":"MSFT","NASDAQ:TSLA":"TSLA","AMEX:SPY":"SPY"};
+const BNTF={"1m":"1m","3m":"3m","5m":"5m","15m":"15m","30m":"30m","1H":"1h","4H":"4h"};
+function anaTf(){const b=barsFor(S.sym,S.tf);return isIntra(S.tf)&&b&&b.length>=30?S.tf:S.tf==="1W"?"1D":S.tf==="1D"?"1D":"1D"}
+function parseRows(txt){return String(txt||"").split(";").filter(Boolean).map(r=>{const a=r.split(",").map(Number);return{t:a[0],o:a[1],h:a[2],l:a[3],c:a[4],v:a[5]||0}})}
+function setIntra(key,tf,bars){(IB[key]=IB[key]||{})[tf]=bars;IST[key+"|"+tf]=bars.length?"ok":"none";if(key===S.sym&&tf===S.tf){draw();renderAnalysis()}}
+async function ensureIntra(key,tf){
+  if(!isIntra(tf))return;
+  const s=SYMS[key];
+  if(s.grp==="crypto"){if(IB[key]&&IB[key][tf]&&IST[key+"|"+tf+"|t"]>Date.now()-300000)return;
+    const sym=key.split(":")[1];
+    for(const host of["https://data-api.binance.vision","https://api.binance.com"]){
+      try{const r=await fetch(`${host}/api/v3/klines?symbol=${sym}&interval=${BNTF[tf]}&limit=300`);if(!r.ok)continue;const j=await r.json();
+        setIntra(key,tf,j.map(k=>({t:Math.floor(k[0]/1000),o:+k[1],h:+k[2],l:+k[3],c:+k[4],v:+k[5]})));IST[key+"|"+tf+"|t"]=Date.now();return}catch(e){}}
+    IST[key+"|"+tf]="none";if(key===S.sym)draw();return}
+  const db=window.FIREBASE_DB,name=FBNAME[key];
+  if(!db||!name||typeof EventSource==="undefined"){IST[key+"|"+tf]="none";if(key===S.sym)draw();return}
+  const want=key+"|"+tf;if(intraKey===want&&intraES)return;
+  if(intraES){intraES.close();intraES=null}
+  intraKey=want;
+  const es=new EventSource(`${db.replace(/\/$/,"")}/candles/${name}/${tf}.json`);intraES=es;
+  const on=e=>{try{const m=JSON.parse(e.data);if(m&&(m.path==="/"||!m.path)){if(m.data==null){IST[want]="none";if(key===S.sym)draw();return}
+    const fresh=parseRows(m.data);const old=IB[key]&&IB[key][tf];
+    if(old&&old.length&&fresh.length){const lb=old.at(-1),fb=fresh.at(-1);if(lb.t===fb.t){fb.h=Math.max(fb.h,lb.h);fb.l=Math.min(fb.l,lb.l);fb.c=lb.c}else if(lb.t>fb.t)fresh.push(lb)}
+    setIntra(key,tf,fresh)}}catch(x){}};
+  es.addEventListener("put",on);es.addEventListener("patch",on);
+  es.onerror=()=>{if(!IB[key]||!IB[key][tf])IST[want]="none";if(key===S.sym)draw()};
+  setTimeout(()=>{if(!IB[key]||!IB[key][tf]){IST[want]="none";if(key===S.sym&&S.tf===tf)draw()}},8000);
+}
+function tickIntra(k,px){const m=IB[k];if(!m)return;const now=Math.floor(Date.now()/1000);
+  for(const [tf,b] of Object.entries(m)){if(!b||!b.length)continue;const sec=TFSEC[tf],last=b.at(-1);
+    if(now>=last.t+sec){let t=last.t+sec;while(now>=t+sec)t+=sec;b.push({t,o:last.c,h:Math.max(last.c,px),l:Math.min(last.c,px),c:px,v:0});if(b.length>600)b.shift()}
+    else{last.c=px;last.h=Math.max(last.h,px);last.l=Math.min(last.l,px)}}}
 
 /* ===== chart drawing ===== */
 const cv=$("cv"),ctx=cv.getContext("2d");let W=0,H=0,geo=null;
@@ -487,6 +526,7 @@ new ResizeObserver(resize).observe(cv.parentElement);
 
 function draw(){
   if(!W||!H)return;
+  if(isIntra(S.tf)){const ib=barsFor(S.sym,S.tf);if(!ib||ib.length<3){ctx.clearRect(0,0,W,H);ctx.fillStyle=css("--muted");ctx.font="500 13px "+css("--sans");ctx.textAlign="center";ctx.textBaseline="middle";const st=IST[S.sym+"|"+S.tf];ctx.fillText(st==="none"?`No ${S.tf} candles yet for ${SYMS[S.sym].tk}. They appear when the price bridge on your PC is running.`:`Loading ${S.tf} candles…`,W/2,H/2);$("ohlc").textContent="";return}}
   const X=series(S.sym,S.tf),key=S.sym,N=X.b.length;
   const cnt=Math.min(S.range,N),end=Math.max(cnt,N-S.offset),start=Math.max(0,end-cnt);
   const C={bg:css("--ink"),grid:"rgba(139,149,169,.09)",axis:css("--muted"),up:css("--up"),down:css("--down"),gold:css("--gold"),blue:css("--blue"),violet:css("--violet"),cyan:css("--cyan"),pink:css("--pink"),text:css("--text"),line:css("--line")};
@@ -506,8 +546,12 @@ function draw(){
   const step=niceStep((hi-lo)/6);
   for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){const yy=Math.round(y(v))+.5;ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(8,yy);ctx.lineTo(8+plotW,yy);ctx.stroke();ctx.fillStyle=C.axis;ctx.textAlign="left";ctx.fillText(f(key,v),W-RA+6,yy)}
   // time axis
-  ctx.textAlign="center";let lastM=-1;
-  for(const i of idx){const d=new Date(X.b[i].t*1000);const m=d.getUTCMonth();if(m!==lastM){if(lastM!==-1||i===start){const xx=Math.round(x(i))+.5;ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,H-XA);ctx.stroke();ctx.fillStyle=C.axis;ctx.fillText(d.toLocaleString("en-US",{month:"short",timeZone:"UTC"})+(m===0?" "+d.getUTCFullYear():""),xx,H-XA/2)}lastM=m}}
+  ctx.textAlign="center";
+  if(isIntra(S.tf)&&X.b!==SYMS[key].bars){const every=Math.max(1,Math.ceil(90/cw));let lastD=null;
+    for(const i of idx){const d=new Date(X.b[i].t*1000);const day=d.toDateString();const newDay=lastD!==null&&day!==lastD;
+      if((i-start)%every===0||newDay){const xx=Math.round(x(i))+.5;ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,H-XA);ctx.stroke();ctx.fillStyle=newDay?C.text:C.axis;ctx.fillText(newDay||S.tf==="4H"?d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"}):d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}),xx,H-XA/2)}lastD=day}}
+  else{let lastM=-1;
+  for(const i of idx){const d=new Date(X.b[i].t*1000);const m=d.getUTCMonth();if(m!==lastM){if(lastM!==-1||i===start){const xx=Math.round(x(i))+.5;ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,H-XA);ctx.stroke();ctx.fillStyle=C.axis;ctx.fillText(d.toLocaleString("en-US",{month:"short",timeZone:"UTC"})+(m===0?" "+d.getUTCFullYear():""),xx,H-XA/2)}lastM=m}}}
   // volume
   if(S.ov.has("vol")){const vmax=Math.max(...idx.map(i=>X.b[i].v));const vh=mainH*0.2;for(const i of idx){const b=X.b[i];const h=b.v/vmax*vh;ctx.fillStyle=(b.c>=b.o?C.up:C.down)+"38";ctx.fillRect(x(i)-cw*0.35,padT+mainH-h,Math.max(1,cw*0.7),h)}}
   ctx.save();ctx.beginPath();ctx.rect(8,padT,plotW,mainH);ctx.clip();
@@ -516,7 +560,7 @@ function draw(){
   if(S.ov.has("dc")){line(X.DC.u,C.cyan,1.2);line(X.DC.l,C.cyan,1.2)}
   if(S.ov.has("vwap")){line(vwap(X.b,start),"#F4F4F4",1.3,[2,3])}
   // S/R
-  const A=analyze(key,"1D");
+  const A=analyze(key,anaTf());
   if(S.ov.has("sr")){[[A.res,C.down,"R"],[A.sup,C.up,"S"]].forEach(([v,c])=>{if(v<lo||v>hi)return;ctx.strokeStyle=c;ctx.setLineDash([6,4]);ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(8,y(v));ctx.lineTo(8+plotW,y(v));ctx.stroke();ctx.setLineDash([])})}
   // price
   if(S.ct==="candle"){for(const i of idx){const b=X.b[i],up=b.c>=b.o,col=up?C.up:C.down;const xx=x(i);ctx.strokeStyle=col;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(Math.round(xx)+.5,y(b.h));ctx.lineTo(Math.round(xx)+.5,y(b.l));ctx.stroke();const bw=Math.max(1,cw*0.66),top=y(Math.max(b.o,b.c)),bh=Math.max(1,Math.abs(y(b.o)-y(b.c)));ctx.fillStyle=col;ctx.fillRect(xx-bw/2,top,bw,bh)}}
@@ -544,7 +588,7 @@ function draw(){
   }
   // crosshair
   const hv=S.hover;
-  if(hv&&hv.i>=start&&hv.i<end){const xx=Math.round(x(hv.i))+.5;ctx.strokeStyle="rgba(230,234,242,.35)";ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,H-XA);ctx.stroke();if(hv.y>padT&&hv.y<padT+mainH){ctx.beginPath();ctx.moveTo(8,hv.y+.5);ctx.lineTo(8+plotW,hv.y+.5);ctx.stroke();ctx.setLineDash([]);const v=hi-(hv.y-padT)/mainH*(hi-lo);ctx.fillStyle=C.line;rr(W-RA+1,hv.y-9,RA-3,18,4);ctx.fill();ctx.fillStyle=C.text;ctx.textAlign="left";ctx.fillText(f(key,v),W-RA+5,hv.y+.5)}ctx.setLineDash([]);const d=new Date(X.b[hv.i].t*1000);const ds=d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit",timeZone:"UTC"});ctx.font="600 10.5px "+css("--mono");const tw=ctx.measureText(ds).width+12;ctx.fillStyle=C.line;rr(xx-tw/2,H-XA+2,tw,17,4);ctx.fill();ctx.fillStyle=C.text;ctx.textAlign="center";ctx.fillText(ds,xx,H-XA+11)}
+  if(hv&&hv.i>=start&&hv.i<end){const xx=Math.round(x(hv.i))+.5;ctx.strokeStyle="rgba(230,234,242,.35)";ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(xx,padT);ctx.lineTo(xx,H-XA);ctx.stroke();if(hv.y>padT&&hv.y<padT+mainH){ctx.beginPath();ctx.moveTo(8,hv.y+.5);ctx.lineTo(8+plotW,hv.y+.5);ctx.stroke();ctx.setLineDash([]);const v=hi-(hv.y-padT)/mainH*(hi-lo);ctx.fillStyle=C.line;rr(W-RA+1,hv.y-9,RA-3,18,4);ctx.fill();ctx.fillStyle=C.text;ctx.textAlign="left";ctx.fillText(f(key,v),W-RA+5,hv.y+.5)}ctx.setLineDash([]);const d=new Date(X.b[hv.i].t*1000);const ds=isIntra(S.tf)?d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"2-digit",timeZone:"UTC"});ctx.font="600 10.5px "+css("--mono");const tw=ctx.measureText(ds).width+12;ctx.fillStyle=C.line;rr(xx-tw/2,H-XA+2,tw,17,4);ctx.fill();ctx.fillStyle=C.text;ctx.textAlign="center";ctx.fillText(ds,xx,H-XA+11)}
   renderOHLC(hv&&hv.i>=start&&hv.i<end?hv.i:N-1,X);
 
   function line(arr,col,w,dash){ctx.strokeStyle=col;ctx.lineWidth=w;ctx.setLineDash(dash||[]);ctx.beginPath();let st=false;for(const i of idx){const v=arr[i];if(v==null){st=false;continue}st?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v));st=true}ctx.stroke();ctx.setLineDash([]);ctx.lineWidth=1}
@@ -552,7 +596,7 @@ function draw(){
 }
 function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 function niceStep(r){const p=Math.pow(10,Math.floor(Math.log10(r)));const m=r/p;return(m<1.5?1:m<3?2:m<7?5:10)*p}
-function renderOHLC(i,X){const b=X.b[i],k=S.sym,pc=i?X.c[i-1]:b.o,ch=(b.c/pc-1)*100;const d=new Date(b.t*1000).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});$("ohlc").innerHTML=`<span>${d}</span><span>O <b>${f(k,b.o)}</b></span><span>H <b>${f(k,b.h)}</b></span><span>L <b>${f(k,b.l)}</b></span><span>C <b>${f(k,b.c)}</b></span><span class="${cls(ch)}">${pct(ch)}</span><span>V <b>${fv(b.v)}</b></span>${S.ov.has("ema20")&&X.E20[i]?`<span style="color:var(--gold)">EMA20 ${f(k,X.E20[i])}</span>`:""}${S.ov.has("ema50")&&X.E50[i]?`<span style="color:var(--blue)">EMA${X.e50n} ${f(k,X.E50[i])}</span>`:""}`}
+function renderOHLC(i,X){const b=X.b[i],k=S.sym,pc=i?X.c[i-1]:b.o,ch=(b.c/pc-1)*100;const dd=new Date(b.t*1000);const d=isIntra(S.tf)?dd.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+" "+dd.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})+" · "+S.tf:dd.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});$("ohlc").innerHTML=`<span>${d}</span><span>O <b>${f(k,b.o)}</b></span><span>H <b>${f(k,b.h)}</b></span><span>L <b>${f(k,b.l)}</b></span><span>C <b>${f(k,b.c)}</b></span><span class="${cls(ch)}">${pct(ch)}</span><span>V <b>${fv(b.v)}</b></span>${S.ov.has("ema20")&&X.E20[i]?`<span style="color:var(--gold)">EMA20 ${f(k,X.E20[i])}</span>`:""}${S.ov.has("ema50")&&X.E50[i]?`<span style="color:var(--blue)">EMA${X.e50n} ${f(k,X.E50[i])}</span>`:""}`}
 
 /* pointer: crosshair, pan, zoom */
 let drag=null;
@@ -563,11 +607,11 @@ cv.addEventListener("pointerleave",()=>{S.hover=null;drag=null;draw()});
 cv.addEventListener("wheel",e=>{e.preventDefault();const N=geo.X.b.length;const cur=Math.min(S.range,N);S.range=Math.max(15,Math.min(N,Math.round(cur*(e.deltaY>0?1.15:0.87))));[...$("rgSeg").children].forEach(x=>x.setAttribute("aria-pressed","false"));draw()},{passive:false});
 
 /* ===== header + analysis panel ===== */
-function renderHead(){const s=SYMS[S.sym],b=s.bars,c=chgOf(S.sym);$("cExch").textContent=s.ex+" · "+(s.ex==="MT5"?"Index CFD":s.grp==="us"?"US equity":s.grp==="fx"?"Spot":"Crypto spot");$("cSym").textContent=s.tk;$("cName").textContent=s.name;$("cPrice").textContent=f(S.sym,b.at(-1).c);$("cChg").innerHTML=`<span class="${cls(c)}">${c>=0?"▲":"▼"} ${f(S.sym,Math.abs(b.at(-1).c-b.at(-2).c))} (${pct(c)})</span>`;$("aSymLbl").textContent=s.tk;const hs=LIVE.has(S.sym)?"● LIVE":CLOSED.has(S.sym)?"◌ MARKET CLOSED":"◇ SIMULATED";$("cExch").textContent+=" · "+hs;$("indTf").textContent="1D"}
+function renderHead(){const s=SYMS[S.sym],b=s.bars,c=chgOf(S.sym);$("cExch").textContent=s.ex+" · "+(s.ex==="MT5"?"Index CFD":s.grp==="us"?"US equity":s.grp==="fx"?"Spot":"Crypto spot");$("cSym").textContent=s.tk;$("cName").textContent=s.name;$("cPrice").textContent=f(S.sym,b.at(-1).c);$("cChg").innerHTML=`<span class="${cls(c)}">${c>=0?"▲":"▼"} ${f(S.sym,Math.abs(b.at(-1).c-b.at(-2).c))} (${pct(c)})</span>`;$("aSymLbl").textContent=s.tk;const hs=LIVE.has(S.sym)?"● LIVE":CLOSED.has(S.sym)?"◌ MARKET CLOSED":"◇ SIMULATED";$("cExch").textContent+=" · "+hs;$("indTf").textContent=tfLabel(anaTf())}
 function renderAnalysis(){
-  const A=analyze(S.sym,"1D"),k=S.sym;
+  const A=analyze(S.sym,anaTf()),k=S.sym;
   const tl={up:"Uptrend",down:"Downtrend",neu:"Range / transition"}[A.trend];
-  $("trendBox").className="trend "+A.trend;$("trendBox").innerHTML=`<span>${A.trend==="up"?"▲":A.trend==="down"?"▼":"◆"} ${tl}</span><small>1D · ${ASOF.toISOString().slice(0,10)}</small>`;
+  $("trendBox").className="trend "+A.trend;$("trendBox").innerHTML=`<span>${A.trend==="up"?"▲":A.trend==="down"?"▼":"◆"} ${tl}</span><small>${tfLabel(anaTf())} · ${anaTf()==="1D"?ASOF.toISOString().slice(0,10):"live"}</small>`;
   $("score").textContent=(A.sc>0?"+":"")+A.sc;$("score").className="num "+(A.sc>=15?"up":A.sc<=-15?"down":"");
   $("scoreLbl").textContent=A.sc>=50?"Strong bullish":A.sc>=15?"Bullish":A.sc<=-50?"Strong bearish":A.sc<=-15?"Bearish":"Neutral";
   $("gneedle").style.left=((A.sc+100)/2)+"%";
@@ -626,6 +670,7 @@ function simTick(){for(const k of KEYS){if(LIVE.has(k)||CLOSED.has(k)||REAL.has(
 function applyTick(k,px,live){
   const s=SYMS[k];
   if(live){const off=s.off||0,today=Math.floor((Date.now()/1000+off)/86400);if(Math.floor((s.bars.at(-1).t+off)/86400)<today&&isSession(k)){const pc=s.bars.at(-1).c;s.bars.push({t:Math.floor(Date.now()/1000),o:pc,h:Math.max(pc,px),l:Math.min(pc,px),c:pc,v:0})}}
+  tickIntra(k,px);
   const b=s.bars.at(-1),old=b.c;b.c=px;b.h=Math.max(b.h,px);b.l=Math.min(b.l,px);b.v+=Math.random()*b.v*0.002;
   const pe=document.querySelector(`[data-p="${k}"]`),ce=document.querySelector(`[data-c="${k}"]`);
   if(pe){pe.textContent=f(k,px);const row=pe.closest(".wi");row.classList.remove("flash-up","flash-down");void row.offsetWidth;row.classList.add(px>=old?"flash-up":"flash-down")}
@@ -700,11 +745,11 @@ function setM(m,sub){document.body.dataset.m=m;if(sub)setSub(sub);syncNav();scro
 function syncNav(){document.querySelectorAll("#mnav button").forEach(b=>b.setAttribute("aria-current",String(b.dataset.m===document.body.dataset.m&&(!b.dataset.sub||b.dataset.sub===S.sub))))}
 $("mnav").addEventListener("click",e=>{const b=e.target.closest("button");if(b)setM(b.dataset.m,b.dataset.sub)});
 
-function select(k){S.sym=k;S.offset=0;S.hover=null;calcTouched=false;renderAll()}
+function select(k){S.sym=k;S.offset=0;S.hover=null;calcTouched=false;ensureIntra(k,S.tf);renderAll()}
 function renderAll(){renderWL();renderHead();renderAnalysis();draw();if(S.sub==="screener")renderScreener();if(S.sub==="alerts")renderAlertForm()}
 
 document.body.dataset.m="center";
-$("dataNote").innerHTML=`Bars: TradingView daily, delayed/EOD · last bar ${ASOF.toISOString().slice(0,10)}<br>Ticks after that are simulated from each symbol's ATR.`;
+$("dataNote").innerHTML=window.FIREBASE_DB?`Daily history: TradingView · intraday &amp; live: your MT5, Binance, Yahoo<br>Tags: <b style="color:var(--up)">LIVE</b> real price · CLOSED market shut · SIM no feed`:`Bars: TradingView daily, delayed/EOD · last bar ${ASOF.toISOString().slice(0,10)}<br>Ticks after that are simulated from each symbol's ATR.`;
 renderGroups();renderOvl();renderPresets();renderRules();renderAll();renderScreener();renderAlerts();
 </script>
 
